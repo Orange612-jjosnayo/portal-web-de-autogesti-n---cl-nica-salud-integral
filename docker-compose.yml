@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: clinica-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-contrasena_segura}
+      POSTGRES_DB: ${DB_NAME:-clinica_salud_integral}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - internal-network
+
+  backend:
+    build:
+      context: ./backend-clinica
+      dockerfile: Dockerfile
+    container_name: clinica-backend
+    restart: always
+    environment:
+      - PORT=3001
+      - NODE_ENV=development
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-contrasena_segura}
+      - DB_NAME=${DB_NAME:-clinica_salud_integral}
+      - JWT_SECRET=${JWT_SECRET:-contrasena_super_secreta_y_compleja_para_firmar_jwts_2026}
+      - FRONTEND_URL=http://staging.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
+      - VIRTUAL_HOST=api.staging.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
+      - VIRTUAL_PORT=3001
+    depends_on:
+      - db
+    networks:
+      - internal-network
+      - proxy-network
+
+  frontend:
+    build:
+      context: ./frontend-clinica
+      dockerfile: Dockerfile
+    container_name: clinica-frontend
+    restart: always
+    depends_on:
+      - backend
+    networks:
+      - proxy-network
+    environment:
+      - VIRTUAL_HOST=staging.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
+      - VIRTUAL_PORT=3000
+
+volumes:
+  db_data:
+
+networks:
+  internal-network:
+    driver: bridge
+  proxy-network:
+    external: true
+    name: proxy-network

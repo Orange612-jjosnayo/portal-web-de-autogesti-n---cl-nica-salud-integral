@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  db-prod:
+    image: postgres:15-alpine
+    container_name: clinica-db-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-contrasena_segura_prod}
+      POSTGRES_DB: ${DB_NAME:-clinica_salud_integral_prod}
+    volumes:
+      - db_data_prod:/var/lib/postgresql/data
+    networks:
+      - internal-network-prod
+
+  backend-prod:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER_LC}/clinica-backend:latest-prod
+    container_name: clinica-backend-prod
+    restart: always
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - DB_HOST=db-prod
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-contrasena_segura_prod}
+      - DB_NAME=${DB_NAME:-clinica_salud_integral_prod}
+      - JWT_SECRET=${JWT_SECRET:-contrasena_super_secreta_y_compleja_para_firmar_jwts_2026_prod}
+      - FRONTEND_URL=http://portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
+      - VIRTUAL_HOST=api.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
+      - VIRTUAL_PORT=3001
+    depends_on:
+      - db-prod
+    networks:
+      - internal-network-prod
+      - proxy-network
+
+  frontend-prod:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER_LC}/clinica-frontend:latest-prod
+    container_name: clinica-frontend-prod
+    restart: always
+    depends_on:
+      - backend-prod
+    networks:
+      - proxy-network
+    environment:
+      - VIRTUAL_HOST=portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
+      - VIRTUAL_PORT=3000
+
+volumes:
+  db_data_prod:
+
+networks:
+  internal-network-prod:
+    driver: bridge
+  proxy-network:
+    external: true
+    name: proxy-network

@@ -1,0 +1,108 @@
+name: Deploy Production - Portal Web de Autogestión Clínica
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push-prod:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Downcase repository owner
+        run: |
+          echo "OWNER_LC=${OWNER,,}" >> ${GITHUB_ENV}
+        env:
+          OWNER: '${{ github.repository_owner }}'
+
+      - name: Build and push Backend image (Prod)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend-clinica
+          file: ./backend-clinica/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/clinica-backend:latest-prod
+            ghcr.io/${{ env.OWNER_LC }}/clinica-backend:${{ github.sha }}-prod
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Frontend image (Prod)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-clinica
+          file: ./frontend-clinica/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/clinica-frontend:latest-prod
+            ghcr.io/${{ env.OWNER_LC }}/clinica-frontend:${{ github.sha }}-prod
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://api.portal-web-de-autogesti-n---cl-nica-salud-integral.${{ secrets.VPS_HOST }}.nip.io
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-prod:
+    needs: build-and-push-prod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Downcase repository owner
+        run: |
+          echo "OWNER_LC=${OWNER,,}" >> ${GITHUB_ENV}
+        env:
+          OWNER: '${{ github.repository_owner }}'
+
+      - name: Prepare docker-compose-prod.yml
+        run: |
+          # Reemplazar la variable de entorno del owner en el archivo compose de producción
+          sed -i "s/\${GITHUB_REPOSITORY_OWNER_LC}/${{ env.OWNER_LC }}/g" docker-compose-prod.yml
+          
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "COMPOSE_CONTENT<<$EOF" >> $GITHUB_ENV
+          cat docker-compose-prod.yml >> $GITHUB_ENV
+          echo "$EOF" >> $GITHUB_ENV
+
+      - name: Deploy to VPS via SSH (Prod)
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          COMPOSE_CONTENT: ${{ env.COMPOSE_CONTENT }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          envs: COMPOSE_CONTENT
+          script: |
+            mkdir -p ~/app/portal-web-de-autogesti-n---cl-nica-salud-integral
+            cd ~/app/portal-web-de-autogesti-n---cl-nica-salud-integral
+            
+            echo "$COMPOSE_CONTENT" > docker-compose-prod.yml
+            
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            docker network create proxy-network || true
+            
+            echo "VPS_HOST=${{ secrets.VPS_HOST }}" > .env
+            
+            docker-compose -f docker-compose-prod.yml pull
+            docker-compose -f docker-compose-prod.yml up -d
+            
+            docker image prune -f

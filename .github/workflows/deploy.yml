@@ -1,0 +1,144 @@
+name: Deploy Staging - Portal Web de Autogestión Clínica
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Downcase repository owner
+        run: |
+          echo "OWNER_LC=${OWNER,,}" >> ${GITHUB_ENV}
+        env:
+          OWNER: '${{ github.repository_owner }}'
+
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend-clinica
+          file: ./backend-clinica/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/clinica-backend:latest
+            ghcr.io/${{ env.OWNER_LC }}/clinica-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-clinica
+          file: ./frontend-clinica/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/clinica-frontend:latest
+            ghcr.io/${{ env.OWNER_LC }}/clinica-frontend:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://api.staging.portal-web-de-autogesti-n---cl-nica-salud-integral.${{ secrets.VPS_HOST }}.nip.io
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Downcase repository owner
+        run: |
+          echo "OWNER_LC=${OWNER,,}" >> ${GITHUB_ENV}
+        env:
+          OWNER: '${{ github.repository_owner }}'
+
+      - name: Prepare docker-compose.yml for staging
+        run: |
+          python3 -c "
+          with open('docker-compose.yml', 'r') as f:
+              lines = f.readlines()
+          
+          out = []
+          skip = False
+          for i, line in enumerate(lines):
+              if 'build:' in line:
+                  if 'context: ./backend-clinica' in lines[i+1] or 'context: ./backend-clinica' in lines[i+2]:
+                      out.append('    image: ghcr.io/${{ env.OWNER_LC }}/clinica-backend:latest\n')
+                      skip = True
+                      continue
+                  elif 'context: ./frontend-clinica' in lines[i+1] or 'context: ./frontend-clinica' in lines[i+2]:
+                      out.append('    image: ghcr.io/${{ env.OWNER_LC }}/clinica-frontend:latest\n')
+                      skip = True
+                      continue
+              if skip:
+                  if 'context:' in line or 'dockerfile:' in line:
+                      continue
+                  else:
+                      skip = False
+              out.append(line)
+          
+          with open('docker-compose.yml', 'w') as f:
+              f.writelines(out)
+          "
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "COMPOSE_CONTENT<<$EOF" >> $GITHUB_ENV
+          cat docker-compose.yml >> $GITHUB_ENV
+          echo "$EOF" >> $GITHUB_ENV
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          COMPOSE_CONTENT: ${{ env.COMPOSE_CONTENT }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          envs: COMPOSE_CONTENT
+          script: |
+            mkdir -p ~/app/portal-web-de-autogesti-n---cl-nica-salud-integral
+            cd ~/app/portal-web-de-autogesti-n---cl-nica-salud-integral
+            
+            echo "$COMPOSE_CONTENT" > docker-compose.yml
+            
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            docker network create proxy-network || true
+            
+            echo "VPS_HOST=${{ secrets.VPS_HOST }}" > .env
+            
+            docker-compose pull
+            docker-compose up -d
+            
+            docker image prune -f
+      - name: Notificar a n8n para iniciar Auditoría
+        run: |
+          curl -X POST "https://motion-gem-flounder.ngrok-free.dev/webhook/fea9fca6-329a-4032-b870-1c164cb33031" \
+               -H "Content-Type: application/json" \
+               -d '{
+                     "repositorio": "${{ github.repository }}",
+                     "url_staging": "http://staging.${{ github.event.repository.name }}.8.35.194.76.nip.io",
+                     "commit_sha": "${{ github.sha }}",
+                     "rama_origen": "CSI35-4-desarrollo-del-modulo-de-autenticacion-y-registro-de-pacientes",
+                     "pr_numero": "1",
+                     "enfoque_dispositivo": "${{ vars.ENFOQUE_DISPOSITIVO }}"
+                   }'
