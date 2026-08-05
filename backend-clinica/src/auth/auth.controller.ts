@@ -28,6 +28,7 @@ export class AuthController {
       sameSite: 'lax', // Protección frente a ataques CSRF
       maxAge: 1000 * 60 * 60 * 24, // Expiración: 1 día (24h)
       path: '/',
+      domain: process.env.COOKIE_DOMAIN || undefined, // Añade esta línea
     });
 
     return {

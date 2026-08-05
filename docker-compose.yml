@@ -9,10 +9,20 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-contrasena_segura}
       POSTGRES_DB: ${DB_NAME:-clinica_salud_integral}
+    labels:
+      - "backup.enable=true"
+      - "backup.engine=postgres"
+      - "backup.db_user=postgres"
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
       - internal-network
+    # Añadimos un comprobador de estado para evitar el error ENOTFOUND
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-clinica_salud_integral}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -30,23 +40,15 @@ services:
       - DB_NAME=${DB_NAME:-clinica_salud_integral}
       - JWT_SECRET=${JWT_SECRET:-contrasena_super_secreta_y_compleja_para_firmar_jwts_2026}
       - FRONTEND_URL=http://staging.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
+      # Pasamos el dominio raíz (con un punto al inicio) para que la cookie sea compartida
+      - COOKIE_DOMAIN=.staging.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
       - VIRTUAL_HOST=api.staging.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
       - VIRTUAL_PORT=3001
     depends_on:
-      - db
+      db:
+        condition: service_healthy # Espera a que Postgres esté listo antes de arrancar
     networks:
       - internal-network
-      - proxy-network
-
-  frontend:
-    build:
-      context: ./frontend-clinica
-      dockerfile: Dockerfile
-    container_name: clinica-frontend
-    restart: always
-    depends_on:
-      - backend
-    networks:
       - proxy-network
     environment:
       - VIRTUAL_HOST=staging.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
