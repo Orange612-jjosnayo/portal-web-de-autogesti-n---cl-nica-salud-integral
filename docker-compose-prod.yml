@@ -9,6 +9,10 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-contrasena_segura_prod}
       POSTGRES_DB: ${DB_NAME:-clinica_salud_integral_prod}
+    labels:
+      - "backup.enable=true"
+      - "backup.engine=postgres"
+      - "backup.db_user=postgres"
     volumes:
       - db_data_prod:/var/lib/postgresql/data
     networks:
