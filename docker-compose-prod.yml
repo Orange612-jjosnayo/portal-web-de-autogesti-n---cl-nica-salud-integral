@@ -9,10 +9,19 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-contrasena_segura_prod}
       POSTGRES_DB: ${DB_NAME:-clinica_salud_integral_prod}
+    labels:
+      - "backup.enable=true"
+      - "backup.engine=postgres"
+      - "backup.db_user=postgres"
     volumes:
       - db_data_prod:/var/lib/postgresql/data
     networks:
       - internal-network-prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-clinica_salud_integral_prod}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend-prod:
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER_LC}/clinica-backend:latest-prod
@@ -29,10 +38,12 @@ services:
       - DB_NAME=${DB_NAME:-clinica_salud_integral_prod}
       - JWT_SECRET=${JWT_SECRET:-contrasena_super_secreta_y_compleja_para_firmar_jwts_2026_prod}
       - FRONTEND_URL=http://portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
+      - COOKIE_DOMAIN=.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
       - VIRTUAL_HOST=api.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
       - VIRTUAL_PORT=3001
     depends_on:
-      - db-prod
+      db-prod:
+        condition: service_healthy
     networks:
       - internal-network-prod
       - proxy-network

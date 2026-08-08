@@ -22,6 +22,8 @@ import { Paciente } from './users/entities/paciente.entity';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         entities: [User, Paciente],
+        migrations: [__dirname + '/../migrations/*{.ts,.js}', __dirname + '/migrations/*{.ts,.js}'],
+        migrationsRun: configService.get<string>('NODE_ENV') === 'production',
         // ⚠️ EN PRODUCCIÓN 'synchronize' DEBE SER FALSE
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
       }),
