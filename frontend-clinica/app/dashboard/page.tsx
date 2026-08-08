@@ -8,8 +8,9 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       // Llamada al endpoint de logout en NestJS para limpiar la cookie HttpOnly
-      await fetch('http://localhost:3001/auth/logout', {
+      await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });
