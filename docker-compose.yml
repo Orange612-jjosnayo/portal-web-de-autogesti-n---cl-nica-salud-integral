@@ -33,6 +33,7 @@ services:
     environment:
       - PORT=3001
       - NODE_ENV=development
+      - ENABLE_HTTPS=false # Ponlo en true únicamente si configuraste Certbot/SSL en Nginx
       - DB_HOST=db
       - DB_PORT=5432
       - DB_USERNAME=${DB_USERNAME:-postgres}
