@@ -8,8 +8,10 @@ export function proxy(request: NextRequest) {
   const token = request.cookies.get('access_token')?.value;
   const { pathname } = request.nextUrl;
 
-  // 2. Si intenta entrar a rutas privadas (/dashboard) sin token, redirigir al Login
+  console.log(`[Proxy] Ruta solicitada: ${pathname} | Token presente: ${!!token}`);
+
   if (pathname.startsWith('/dashboard') && !token) {
+    console.log(`[Proxy] Bloqueando acceso a ${pathname}. Redirigiendo a /login`);
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
