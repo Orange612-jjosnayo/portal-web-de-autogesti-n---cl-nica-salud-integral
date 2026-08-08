@@ -51,6 +51,17 @@ services:
     networks:
       - internal-network
       - proxy-network
+
+  frontend:
+    build:
+      context: ./frontend-clinica
+      dockerfile: Dockerfile
+    container_name: clinica-frontend
+    restart: always
+    depends_on:
+      - backend
+    networks:
+      - proxy-network
     environment:
       - VIRTUAL_HOST=staging.portal-web-de-autogesti-n---cl-nica-salud-integral.${VPS_HOST}.nip.io
       - VIRTUAL_PORT=3000
