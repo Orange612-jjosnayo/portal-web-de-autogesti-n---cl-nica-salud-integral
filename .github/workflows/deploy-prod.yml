@@ -105,4 +105,12 @@ jobs:
             docker-compose -f docker-compose-prod.yml pull
             docker-compose -f docker-compose-prod.yml up -d
             
+            # Esperar a que la base de datos esté lista y ejecutar migraciones
+            echo "Esperando a que la base de datos de Producción esté lista..."
+            until docker-compose -f docker-compose-prod.yml exec -T db-prod pg_isready -U postgres -d clinica_salud_integral_prod; do
+              sleep 2
+            done
+            echo "Ejecutando migraciones en Producción..."
+            docker-compose -f docker-compose-prod.yml exec -T backend-prod npm run migration:run
+            
             docker image prune -f

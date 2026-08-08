@@ -13,5 +13,9 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
+# Copiar archivos necesarios para TypeORM y migraciones en producción
+COPY --from=builder /app/data-source.ts ./data-source.ts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder /app/src/migrations ./src/migrations
 EXPOSE 3001
 CMD ["node", "dist/main"]

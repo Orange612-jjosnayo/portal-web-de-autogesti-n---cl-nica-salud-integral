@@ -129,6 +129,14 @@ jobs:
             docker-compose pull
             docker-compose up -d
             
+            # Esperar a que la base de datos esté lista y ejecutar migraciones
+            echo "Esperando a que la base de datos de Staging esté lista..."
+            until docker-compose exec -T db pg_isready -U postgres -d clinica_salud_integral; do
+              sleep 2
+            done
+            echo "Ejecutando migraciones en Staging..."
+            docker-compose exec -T backend npm run migration:run
+            
             docker image prune -f
       - name: Notificar a n8n para iniciar Auditoría
         run: |
@@ -136,9 +144,9 @@ jobs:
                -H "Content-Type: application/json" \
                -d '{
                      "repositorio": "${{ github.repository }}",
-                     "url_staging": "http://staging.${{ github.event.repository.name }}.8.35.194.76.nip.io",
+                     "url_staging": "http://staging.portal-web-de-autogesti-n---cl-nica-salud-integral.${{ secrets.VPS_HOST }}.nip.io",
                      "commit_sha": "${{ github.sha }}",
-                     "rama_origen": "CSI35-4-desarrollo-del-modulo-de-autenticacion-y-registro-de-pacientes",
+                     "rama_origen": "${{ github.ref_name }}",
                      "pr_numero": "1",
                      "enfoque_dispositivo": "${{ vars.ENFOQUE_DISPOSITIVO }}"
                    }'
