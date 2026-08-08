@@ -1,4 +1,19 @@
-@HttpCode(HttpStatus.OK)
+import { Body, Controller, HttpCode, HttpStatus, Post, Res } from '@nestjs/common';
+import type { Response } from 'express';
+import { AuthService } from './auth.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Post('register')
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
+  }
+
+  @HttpCode(HttpStatus.OK)
   @Post('login')
   async login(
     @Body() loginDto: LoginDto,
@@ -23,3 +38,11 @@
       user,
     };
   }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('logout')
+  async logout(@Res({ passthrough: true }) response: Response) {
+    response.clearCookie('access_token', { path: '/' });
+    return { message: 'Sesión cerrada correctamente' };
+  }
+}
