@@ -42,7 +42,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('logout')
   async logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie('access_token', { path: '/' });
+    response.clearCookie('access_token', { 
+      path: '/',
+      domain: process.env.COOKIE_DOMAIN || undefined,
+    });
     return { message: 'Sesión cerrada correctamente' };
   }
 }
