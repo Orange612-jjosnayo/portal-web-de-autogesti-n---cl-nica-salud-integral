@@ -5,6 +5,10 @@ export class RegisterDto {
   @IsNotEmpty({ message: 'El nombre completo es requerido' })
   nombreCompleto: string;
 
+  @IsString()
+  @IsNotEmpty({ message: 'El documento de identidad es requerido' })
+  documentoIdentidad: string;
+
   @IsEmail({}, { message: 'El correo electrónico no es válido' })
   email: string;
 

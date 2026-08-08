@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { User } from './users/entities/user.entity';
+import { Paciente } from './users/entities/paciente.entity';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { User } from './users/entities/user.entity';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
-        entities: [User],
+        entities: [User, Paciente],
         // ⚠️ EN PRODUCCIÓN 'synchronize' DEBE SER FALSE
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
       }),
