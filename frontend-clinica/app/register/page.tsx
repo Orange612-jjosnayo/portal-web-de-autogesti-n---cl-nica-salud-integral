@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { UserPlus, Mail, Lock, User, AlertCircle } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, AlertCircle, IdCard } from 'lucide-react';
 
 const registerSchema = z.object({
   nombreCompleto: z
     .string()
     .min(3, { message: 'El nombre debe tener al menos 3 caracteres' }),
+  documentoIdentidad: z
+    .string()
+    .min(5, { message: 'El documento debe tener al menos 5 caracteres' }),
   email: z
     .string()
     .email({ message: 'Ingrese un correo electrónico válido' }),
@@ -96,6 +99,24 @@ export default function RegisterPage() {
             </div>
             {errors.nombreCompleto && (
               <p className="text-red-500 text-xs mt-1">{errors.nombreCompleto.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Documento de Identidad
+            </label>
+            <div className="relative">
+              <IdCard className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                {...register('documentoIdentidad')}
+                type="text"
+                placeholder="12345678"
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 outline-none transition"
+              />
+            </div>
+            {errors.documentoIdentidad && (
+              <p className="text-red-500 text-xs mt-1">{errors.documentoIdentidad.message}</p>
             )}
           </div>
 
