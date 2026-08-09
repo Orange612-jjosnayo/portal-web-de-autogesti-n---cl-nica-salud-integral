@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
-import { User } from './src/users/entities/user.entity';
-import { Paciente } from './src/users/entities/paciente.entity';
+import { User } from './users/entities/user.entity';
+import { Paciente } from './users/entities/paciente.entity';
 
 dotenv.config();
 
